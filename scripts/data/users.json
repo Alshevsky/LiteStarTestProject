@@ -1,0 +1,37 @@
+[
+    {
+      "name": "John",
+      "surname": "Doe",
+      "password": "password"
+    },
+    {
+      "name": "Jane",
+      "surname": "Doe",
+      "password": "password123"
+    },
+    {
+      "name": "Alex",
+      "surname": "Smith",
+      "password": "password13"
+    },
+    {
+      "name": "Valentina",
+      "surname": "Johnson",
+      "password": "password_Test"
+    },
+    {
+      "name": "Dmitry",
+      "surname": "Kuznetsov",
+      "password": "password_Random777"
+    },
+    {
+      "name": "Donald",
+      "surname": "Trump",
+      "password": "password_A001AA777"
+    },
+    {
+      "name": "Admin",
+      "surname": "Admin",
+      "password": "admin"
+    }
+]
