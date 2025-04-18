@@ -1,6 +1,8 @@
+from dataclasses import asdict, dataclass
 from datetime import datetime
+
 from litestar.dto import DataclassDTO, DTOConfig
-from dataclasses import dataclass
+
 
 @dataclass
 class UserDTO:
@@ -10,16 +12,6 @@ class UserDTO:
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "id": 1,
-                "name": "John",
-                "surname": "Doe",
-                "created_at": "2024-03-20T10:00:00Z",
-                "updated_at": "2024-03-20T10:00:00Z"
-            }
-        }
 
 @dataclass
 class CreateUserDTO:
@@ -27,14 +19,6 @@ class CreateUserDTO:
     surname: str
     password: str
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "name": "John",
-                "surname": "Doe",
-                "password": "secure_password123"
-            }
-        }
 
 @dataclass
 class UpdateUserDTO:
@@ -42,23 +26,22 @@ class UpdateUserDTO:
     surname: str | None = None
     password: str | None = None
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "name": "John",
-                "surname": "Smith",
-                "password": "new_secure_password123"
-            }
-        }
+    def to_dict(self, exclude_none: bool = True):
+        if not exclude_none:
+            return asdict(self)
+        return {k: v for k, v in asdict(self).items() if v is not None}
+
 
 class UserResponseDTO(DataclassDTO[UserDTO]):
     config = DTOConfig(
         exclude={"password"},
-        rename_fields={"created_at": "createdAt", "updated_at": "updatedAt"}
+        rename_fields={"created_at": "createdAt", "updated_at": "updatedAt"},
     )
+
 
 class UserCreateDTO(DataclassDTO[CreateUserDTO]):
     config = DTOConfig()
 
+
 class UserUpdateDTO(DataclassDTO[UpdateUserDTO]):
-    config = DTOConfig() 
+    config = DTOConfig()

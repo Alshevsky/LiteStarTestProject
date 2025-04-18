@@ -21,4 +21,4 @@ def main():
         alembic.run_cmd(config, options)
 
 if __name__ == "__main__":
-    main() 
+    main()

@@ -1,18 +1,19 @@
-from litestar import Controller, get, post, put, delete
+from litestar import Controller, Response, delete, get, post, put, status_codes
 from litestar.di import Provide
+from litestar.exceptions import HTTPException
 from litestar.params import Parameter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from users_app.database.config import get_session
+from users_app.dto.user import CreateUserDTO, UpdateUserDTO, UserDTO
 from users_app.models.user import User
 from users_app.repositories.user_repository import UserRepository
-from users_app.dto.user import UserResponseDTO, UserCreateDTO, UserUpdateDTO, CreateUserDTO, UpdateUserDTO
 
 
 class UserController(Controller):
     path = "/users"
     dependencies = {"session": Provide(get_session)}
-    return_dto = UserResponseDTO
+    include_in_schema = True
 
     @get()
     async def get_users(
@@ -20,51 +21,72 @@ class UserController(Controller):
         session: AsyncSession,
         limit: int = Parameter(gt=0, le=100, default=10),
         offset: int = Parameter(ge=0, default=0),
-    ) -> list[UserResponseDTO]:
-        repository = UserRepository(session)
-        return await repository.get_all()
+    ) -> list[UserDTO]:
+        repository = UserRepository(session=session)
+        users = await repository.get_all()
+        return [
+            UserDTO(
+                id=user.id, name=user.name, surname=user.surname, created_at=user.created_at, updated_at=user.updated_at
+            )
+            for user in users
+        ]
 
     @get("/{user_id:int}")
     async def get_user(
         self,
         session: AsyncSession,
         user_id: int,
-    ) -> UserResponseDTO | None:
-        repository = UserRepository(session)
-        return UserResponseDTO(await repository.get_by_id(user_id))
+    ) -> UserDTO | None:
+        repository = UserRepository(session=session)
+        if user := await repository.get_by_id(user_id):
+            return UserDTO(
+                id=user.id, name=user.name, surname=user.surname, created_at=user.created_at, updated_at=user.updated_at
+            )
+        raise HTTPException(status_code=status_codes.HTTP_404_NOT_FOUND, detail="User not found")
 
-    @post(dto=UserCreateDTO)
+    @post()
     async def create_user(
         self,
         session: AsyncSession,
         data: CreateUserDTO,
-    ) -> User:
-        repository = UserRepository(session)
-        user = User(
-            name=data.name,
-            surname=data.surname,
-            password=data.password
+    ) -> Response:
+        repository = UserRepository(session=session)
+        user = User(name=data.name, surname=data.surname, password=data.password)
+        user.hash_current_password()
+        await repository.create(user)
+        created_user = await repository.get_by_id(user.id)
+        return Response(
+            content=UserDTO(
+                id=created_user.id,
+                name=created_user.name,
+                surname=created_user.surname,
+                created_at=created_user.created_at,
+                updated_at=created_user.updated_at,
+            ),
+            status_code=status_codes.HTTP_201_CREATED,
         )
-        return await repository.create(user)
 
-    @put("/{user_id:int}", dto=UserUpdateDTO)
+    @put("/{user_id:int}")
     async def update_user(
         self,
         session: AsyncSession,
         user_id: int,
         data: UpdateUserDTO,
-    ) -> User:
-        repository = UserRepository(session)
-        user = await repository.get_by_id(user_id)
-        if user:
-            if data.name is not None:
-                user.name = data.name
-            if data.surname is not None:
-                user.surname = data.surname
-            if data.password is not None:
-                user.password = data.password
-            return await repository.update(user)
-        return None
+    ) -> Response:
+        repository = UserRepository(session=session)
+        if user := await repository.get_by_id(user_id):
+            await repository.update(user, data)
+            return Response(
+                content=UserDTO(
+                    id=user.id,
+                    name=user.name,
+                    surname=user.surname,
+                    created_at=user.created_at,
+                    updated_at=user.updated_at,
+                ),
+                status_code=status_codes.HTTP_200_OK,
+            )
+        raise HTTPException(status_code=status_codes.HTTP_404_NOT_FOUND, detail="User not found")
 
     @delete("/{user_id:int}")
     async def delete_user(
@@ -72,7 +94,8 @@ class UserController(Controller):
         session: AsyncSession,
         user_id: int,
     ) -> None:
-        repository = UserRepository(session)
-        user = await repository.get_by_id(user_id)
-        if user:
+        repository = UserRepository(session=session)
+        if user := await repository.get_by_id(user_id):
             await repository.delete(user)
+            return
+        raise HTTPException(status_code=status_codes.HTTP_404_NOT_FOUND, detail="User not found")

@@ -1,17 +1,16 @@
 import logging
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from litestar.contrib.sqlalchemy.repository import SQLAlchemyAsyncRepository
+from sqlalchemy import delete, select, update
 
+from users_app.dto.user import UpdateUserDTO
 from users_app.models.user import User
-from users_app.database.config import engine
 
 logger = logging.getLogger(__name__)
 
 
-class UserRepository:
-    def __init__(self, session: AsyncSession):
-        self.session = session
+class UserRepository(SQLAlchemyAsyncRepository[User]):
+    model_type = User
 
     async def create(self, user: User) -> User:
         try:
@@ -26,26 +25,38 @@ class UserRepository:
 
     async def get_by_id(self, user_id: int) -> User | None:
         try:
-            query = select(User).where(User.id == user_id)
-            result = await self.session.execute(query)
+            stmt = select(User).where(User.id == user_id)
+            result = await self.session.execute(stmt)
             return result.scalar_one_or_none()
         except Exception as e:
             logger.error(f"Error getting user by id: {e}", exc_info=True)
             return None
 
+    async def get_by_name(self, name: str) -> User | None:
+        try:
+            stmt = select(User).where(User.name == name)
+            result = await self.session.execute(stmt)
+            return result.scalar_one_or_none()
+        except Exception as e:
+            logger.error(f"Error getting user by name: {e}", exc_info=True)
+            return None
+
     async def get_all(self) -> list[User]:
         try:
-            query = select(User)
-            result = await self.session.execute(query)
-            return list(result.scalars().all())
+            stmt = select(User)
+            result = await self.session.execute(stmt)
+            return result.scalars().all()
         except Exception as e:
             logger.error(f"Error getting all users: {e}", exc_info=True)
             return []
 
-    async def update(self, user: User) -> User:
+    async def update(self, user: User, data: UpdateUserDTO) -> User:
         try:
-            await self.session.merge(user)
+            print(data.to_dict(exclude_none=True))
+            stmt = update(User).values(**data.to_dict(exclude_none=True)).where(User.id == user.id)
+            await self.session.execute(stmt)
             await self.session.commit()
+            user = await self.get_by_id(user.id)
             return user
         except Exception as e:
             await self.session.rollback()
@@ -54,7 +65,8 @@ class UserRepository:
 
     async def delete(self, user: User) -> None:
         try:
-            await self.session.delete(user)
+            stmt = delete(User).where(User.id == user.id)
+            await self.session.execute(stmt)
             await self.session.commit()
         except Exception as e:
             await self.session.rollback()

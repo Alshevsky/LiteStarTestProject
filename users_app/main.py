@@ -18,9 +18,10 @@ app = Litestar(
         version="1.0.0",
         description="API for managing users",
         use_handler_docstrings=True,
-        path="/docs"
+        path="/docs",
     ),
     lifespan=[create_db_and_tables],
+    debug=False,
 )
 
 if __name__ == "__main__":

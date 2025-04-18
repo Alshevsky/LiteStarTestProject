@@ -1,10 +1,12 @@
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
 from typing import Coroutine
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+
+from litestar import Litestar
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
-from litestar import Litestar
+
 from users_app.database.base import Base
 
 logger = logging.getLogger(__name__)
@@ -13,17 +15,17 @@ DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/users_db"
 
 engine = create_async_engine(
     DATABASE_URL,
-    echo=True,
+    echo=False,
     poolclass=NullPool,
 )
 
 Session = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
+
 @asynccontextmanager
 async def create_db_and_tables(app: Litestar):
     logger.info("Creating tables and engine")
-    if (engine := getattr(app.state, "engine", None)) is None:
-        engine = create_async_engine(DATABASE_URL, echo=True)
+    if getattr(app.state, "engine", None) is None:
         app.state.engine = engine
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
@@ -44,6 +46,7 @@ async def get_session() -> AsyncSession:
             raise
         finally:
             await session.close()
+
 
 def session_connection(method: Coroutine):
     async def wrapper(*args, **kwargs):
